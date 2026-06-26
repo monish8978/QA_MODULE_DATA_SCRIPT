@@ -1,0 +1,28 @@
+services:
+  # Celery Background Worker
+  celery_worker:
+    build: .
+    container_name: qa_celery_worker
+    command: celery -A app.celery_app worker --loglevel=info
+    network_mode: "host"  # Use host network to easily connect to local MySQL (3306) and Redis (6379)
+    env_file:
+      - .env
+    volumes:
+      - /var/log/czentrix:/var/log/czentrix
+      - ./app:/app/app
+      - /var/www/html:/var/www/html  # Mount HTML folder for accessing recordings directly
+    restart: always
+
+  # Celery Beat Scheduler
+  celery_beat:
+    build: .
+    container_name: qa_celery_beat
+    command: celery -A app.celery_app beat --loglevel=info
+    network_mode: "host"  # Use host network to easily connect to local MySQL (3306) and Redis (6379)
+    env_file:
+      - .env
+    volumes:
+      - /var/log/czentrix:/var/log/czentrix
+      - ./app:/app/app
+      - /var/www/html:/var/www/html  # Mount HTML folder for accessing recordings directly
+    restart: always
