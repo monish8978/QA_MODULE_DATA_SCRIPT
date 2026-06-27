@@ -1,4 +1,4 @@
-# QA Module Data Script (Celery + Docker Production Edition)
+# QA_ADMIN Release (QA Module Data Script)
 
 This repository contains the refactored, production-ready daemon for polling, transcribing, and uploading conversation data to the TVT QA Module. It utilizes **FastAPI/Deepgram** for transcription and background queues powered by **Celery** & **Redis** inside **Docker**.
 
@@ -70,6 +70,12 @@ Configure the following parameters in `.env`:
 ---
 
 ## 4. Run Guide
+
+### Step 1: Server Setup (AlmaLinux)
+If you are setting up this project on a fresh AlmaLinux/CentOS server, you can use the automated setup script. This script automatically checks and installs **Docker**, **Docker-Compose**, and **Redis** (required on the host), and it copies `.env.example` to `.env`:
+```bash
+chmod +x install_alma_full.sh
+./install_alma_full.sh
 
 ### Option A: Run via Docker (Recommended for Production)
 
