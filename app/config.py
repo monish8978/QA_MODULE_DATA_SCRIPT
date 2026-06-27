@@ -40,8 +40,10 @@ except Exception:
 
 
 # ───────── TRANSCRIPTION API ─────────
-TRANSCRIPTION_API_URL = os.getenv("TRANSCRIPTION_API_URL", "http://192.168.1.219:8023/api/v1/transcribe")
-TRANSCRIPTION_STATUS_URL = os.getenv("TRANSCRIPTION_STATUS_URL", "http://192.168.1.219:8023/api/v1/status")
+TRANSCRIPTION_API_URL = os.getenv("TRANSCRIPTION_API_URL", "https://call_transcript.c-zentrix.com/api/v1/transcribe")
+TRANSCRIPTION_STATUS_URL = os.getenv("TRANSCRIPTION_STATUS_URL", "https://call_transcript.c-zentrix.com/api/v1/status")
+TRANSCRIPTION_API_KEY = os.getenv("TRANSCRIPTION_API_KEY", "")
+TRANSCRIPTION_SUBMISSION_METHOD = os.getenv("TRANSCRIPTION_SUBMISSION_METHOD", "upload").lower().strip()
 
 # ───────── QA MODULE API ─────────
 QA_API_BASE_URL = os.getenv("QA_API_BASE_URL", "http://172.16.3.215:8005/api/v1")
@@ -50,7 +52,7 @@ QA_EMAIL = os.getenv("QA_EMAIL", "admin@c-zentrix.com")
 QA_PASSWORD = os.getenv("QA_PASSWORD", "Password@123")
 
 # ───────── DOMAIN & METADATA ─────────
-SERVER_DOMAIN = os.getenv("SERVER_DOMAIN", "http://192.168.1.219")
+RECORDING_BASE_URL = os.getenv("RECORDING_BASE_URL", "http://192.168.1.219")
 QA_TOPIC = os.getenv("QA_TOPIC", "connectivity")
 QA_SOURCE = os.getenv("QA_SOURCE", "app_mqji9bzivusp")
 

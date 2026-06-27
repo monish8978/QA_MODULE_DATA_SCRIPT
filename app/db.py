@@ -1,15 +1,26 @@
 import pymysql
 import traceback
+import threading
 from app.config import DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, DB_PORT
 from app.logger import log
 
+_local_data = threading.local()
 
 # ───────── MYSQL DB CONNECTION ─────────
 
 def get_connection_CMPMGR():
     """
     Create and return a MySQL connection to Czentrix Campaign Manager.
+    Uses thread-local storage to pool connections.
     """
+    conn = getattr(_local_data, "db_connection", None)
+    try:
+        if conn:
+            conn.ping(reconnect=True)
+            return conn
+    except Exception:
+        conn = None
+
     try:
         conn = pymysql.connect(
             host=DB_HOST,
@@ -20,6 +31,7 @@ def get_connection_CMPMGR():
             cursorclass=pymysql.cursors.DictCursor,
             autocommit=True
         )
+        _local_data.db_connection = conn
         return conn
     except pymysql.MySQLError as e:
         log.error("MySQL connection error", extra={"error": str(e), "host": DB_HOST, "database": DB_NAME})
@@ -50,12 +62,6 @@ def init_tracker_db():
         log.info("MySQL tracking database table initialized successfully")
     except Exception as e:
         log.error("Failed to initialize MySQL tracking table", extra={"error": str(e), "traceback": traceback.format_exc()})
-    finally:
-        if conn:
-            try:
-                conn.close()
-            except Exception:
-                pass
 
 
 def is_session_processed(session_id: str) -> bool:
@@ -83,12 +89,6 @@ def is_session_processed(session_id: str) -> bool:
         log.error("Failed to check MySQL session status", extra={"session_id": session_id, "error": str(e)})
         # Fail safe - assume processed to avoid duplicate uploads in case of DB issues
         return True
-    finally:
-        if conn:
-            try:
-                conn.close()
-            except Exception:
-                pass
 
 
 def mark_session_processed(session_id: str, status: str = "COMPLETED", error_message: str = None):
@@ -106,9 +106,3 @@ def mark_session_processed(session_id: str, status: str = "COMPLETED", error_mes
         log.info("Logged session state in MySQL tracker", extra={"session_id": session_id, "status": status})
     except Exception as e:
         log.error("Failed to save session state to MySQL tracker", extra={"session_id": session_id, "error": str(e)})
-    finally:
-        if conn:
-            try:
-                conn.close()
-            except Exception:
-                pass

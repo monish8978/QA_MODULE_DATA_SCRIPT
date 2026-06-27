@@ -3,7 +3,7 @@ services:
   celery_worker:
     build: .
     container_name: qa_celery_worker
-    command: celery -A app.celery_app worker --loglevel=info
+    command: celery -A app.celery_app worker --pool=gevent --concurrency=100 --loglevel=info
     network_mode: "host"  # Use host network to easily connect to local MySQL (3306) and Redis (6379)
     env_file:
       - .env

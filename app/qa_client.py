@@ -10,6 +10,14 @@ from app.config import (
     CELERY_BROKER_URL
 )
 from app.logger import log
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+# Create a robust session with retries
+http_session = requests.Session()
+retries = Retry(total=3, backoff_factor=1, status_forcelist=[ 500, 502, 503, 504 ])
+http_session.mount('http://', HTTPAdapter(max_retries=retries))
+http_session.mount('https://', HTTPAdapter(max_retries=retries))
 
 # Redis connection for caching token
 try:
@@ -62,7 +70,7 @@ def get_access_token() -> str:
 
     try:
         log.info("Requesting new access token from QA Server", extra={"url": login_url})
-        res = requests.post(login_url, json=payload, headers=headers, timeout=15)
+        res = http_session.post(login_url, json=payload, headers=headers, timeout=15)
         
         if res.status_code != 200:
             raise Exception(f"Login failed ({res.status_code}): {res.text}")
@@ -118,7 +126,7 @@ def upload_conversation(conversation_payload: dict) -> bool:
         log.info(f"Uploading conversation payload [externalId: {clean_payload.get('externalId')}]")
         # log.info(f"Final QA API Payload: {json.dumps(final_payload)}")
         
-        res = requests.post(upload_url, headers=headers, json=final_payload, timeout=15)
+        res = http_session.post(upload_url, headers=headers, json=final_payload, timeout=15)
         
         if res.status_code in (200, 201):
             log.info(f"Conversation uploaded successfully [externalId: {clean_payload.get('externalId')}]")

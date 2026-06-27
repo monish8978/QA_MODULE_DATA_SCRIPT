@@ -17,8 +17,17 @@ This repository contains the refactored, production-ready daemon for polling, tr
 3. **Smart QA Token Management**:
    - Authenticates with the QA Module API and caches the token in Redis.
    - Features **Auto-Invalidation**: If the QA server expires the token early and returns `401 Unauthorized`, the script instantly invalidates the Redis cache and requests a fresh token on the next Celery retry.
-4. **Queue Isolation**:
+4. **Configurable Transcription Strategy**:
+   - The script can send audio to the transcription API via two distinct methods (`TRANSCRIPTION_SUBMISSION_METHOD`): 
+     - **`url`**: Sends a lightweight JSON payload (`{"file_url": ...}` or `{"file_path": ...}`). Best when files are accessible over a public URL or mapped path.
+     - **`upload`**: Reads the local `.wav` file into memory and uploads it via `multipart/form-data`. Useful when network constraints prevent URL resolution.
+5. **Queue Isolation**:
    - Operates on Redis Database Index `2` (`redis://127.0.0.1:6379/2`) to prevent task conflicts and queue corruption with the external Transcription Service (which runs on DB `0`).
+6. **High-Scale Production Optimizations**:
+   - **Gevent Concurrency**: The Celery worker uses `gevent` (`--pool=gevent --concurrency=100`), allowing thousands of concurrent lightweight tasks without thread-blocking during long transcription polling.
+   - **Database Connection Pooling**: Uses `threading.local()` to reuse MySQL connections per gevent worker, eliminating heavy DB overhead and preventing "Too many connections" errors.
+   - **Memory Leak Protection**: The directory scanner uses a specialized `LRUCache` (max 10,000 files) instead of unbounded sets, guaranteeing memory stability over months of continuous high-volume operation.
+   - **API Request Resilience**: `requests` sessions are equipped with `urllib3` Retry strategies to automatically recover from temporary backend outages (502, 503, 504 errors).
 
 ---
 
@@ -52,7 +61,8 @@ Configure the following parameters in `.env`:
 * **PROCESS_MODE**: Set to `dir`, `db`, or `api` depending on the desired data source.
 * **SCAN_DIRECTORY_PATH**: The folder path to scan if running in `dir` mode.
 * **DB_\***: Campaign Manager MySQL connection parameters.
-* **TRANSCRIPTION_\***: Endpoint to trigger and poll for Deepgram transcriptions.
+* **TRANSCRIPTION_\***: Configuration for the Transcription Service. Includes `TRANSCRIPTION_API_URL`, `TRANSCRIPTION_STATUS_URL`, and `TRANSCRIPTION_API_KEY` for secure authentication. Also dictates the upload strategy via `TRANSCRIPTION_SUBMISSION_METHOD` (`url` or `upload`).
+* **RECORDING_BASE_URL**: The domain/IP prefix attached to local files when constructing the final `recordingUrl` sent to the QA Module (e.g., `http://your-domain.com`).
 * **QA_API_BASE_URL / QA_TENANT_SLUG / QA_EMAIL / QA_PASSWORD**: Credentials to access the QA system.
 * **CELERY_BROKER_URL / CELERY_RESULT_BACKEND**: Redis connection credentials (Must use DB `2`).
 * **POLL_INTERVAL_SECONDS**: System check interval (default: `60` seconds).

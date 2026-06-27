@@ -5,6 +5,24 @@ from datetime import datetime, timedelta
 import traceback
 from decimal import Decimal
 from app.celery_app import celery_app
+from collections import OrderedDict
+
+class LRUCache:
+    def __init__(self, capacity: int):
+        self.cache = OrderedDict()
+        self.capacity = capacity
+
+    def contains(self, key):
+        if key not in self.cache:
+            return False
+        self.cache.move_to_end(key)
+        return True
+
+    def add(self, key):
+        self.cache[key] = True
+        self.cache.move_to_end(key)
+        if len(self.cache) > self.capacity:
+            self.cache.popitem(last=False)
 from app.logger import log
 from app.config import (
     PROCESS_MODE,
@@ -130,18 +148,13 @@ def poll_database_source():
                         queued_count += 1
 
         log.info("Database polling completed", extra={"queued_count": queued_count})
-
-    finally:
-        if conn:
-            try:
-                conn.close()
-            except Exception:
-                pass
+    except Exception as e:
+        log.error("Error in database polling", extra={"error": str(e), "traceback": traceback.format_exc()})
 
 
 # ───────── 2. DIRECTORY SCANNER (dir mode) ─────────
 
-_DIR_SCAN_CACHE = set()
+_DIR_SCAN_CACHE = LRUCache(10000)
 
 def poll_directory_source():
     """
@@ -166,7 +179,7 @@ def poll_directory_source():
         
         for filename in wav_files:
             # Skip instantly if we already cached this file in memory as processed
-            if filename in _DIR_SCAN_CACHE:
+            if _DIR_SCAN_CACHE.contains(filename):
                 continue
 
             # Parse C-Zentrix file format (e.g. AgentName-AgentID-CustPh-SessionID.wav)

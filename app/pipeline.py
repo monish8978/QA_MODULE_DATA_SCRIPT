@@ -1,7 +1,7 @@
 import os
 from datetime import datetime, timezone
 import traceback
-from app.config import SERVER_DOMAIN, QA_TOPIC, QA_SOURCE
+from app.config import RECORDING_BASE_URL, QA_TOPIC, QA_SOURCE
 from app.logger import log
 from app.transcription import get_call_transcription
 from app.qa_client import upload_conversation
@@ -66,7 +66,7 @@ def process_single_call_record(row: dict) -> bool:
                 row.get("monitor_file_path"),
                 row.get("monitor_filename")
             )
-            recording_url = SERVER_DOMAIN + file_path.replace("/var/www/html", "")
+            recording_url = RECORDING_BASE_URL + file_path.replace("/var/www/html", "")
             log.info("Processing local file path record", extra={
                 "session_id": session_id,
                 "monitor_filename": row.get("monitor_filename"),

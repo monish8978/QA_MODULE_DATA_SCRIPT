@@ -1,8 +1,17 @@
+import os
 import time
 import requests
 import traceback
-from app.config import TRANSCRIPTION_API_URL, TRANSCRIPTION_STATUS_URL
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+from app.config import TRANSCRIPTION_API_URL, TRANSCRIPTION_STATUS_URL, TRANSCRIPTION_API_KEY, TRANSCRIPTION_SUBMISSION_METHOD
 from app.logger import log
+
+# Create a robust session with retries
+http_session = requests.Session()
+retries = Retry(total=3, backoff_factor=1, status_forcelist=[ 500, 502, 503, 504 ])
+http_session.mount('http://', HTTPAdapter(max_retries=retries))
+http_session.mount('https://', HTTPAdapter(max_retries=retries))
 
 
 def get_call_transcription(file_path: str = None, file_url: str = None, max_retries: int = 30, delay: int = 3) -> list:
@@ -16,17 +25,35 @@ def get_call_transcription(file_path: str = None, file_url: str = None, max_retr
         log.info("Requesting transcription", extra={"file_path": file_path, "file_url": file_url})
 
         # Step 1: Request transcription task
-        payload = {}
-        if file_url:
-            payload["file_url"] = file_url
-        elif file_path:
-            payload["file_path"] = file_path
-        else:
-            raise ValueError("Either file_path or file_url must be provided")
-
-        headers = {"Content-Type": "application/json"}
-        
-        response = requests.post(TRANSCRIPTION_API_URL, json=payload, headers=headers, timeout=15)
+        headers = {}
+        if TRANSCRIPTION_API_KEY:
+            headers["X-API-Key"] = TRANSCRIPTION_API_KEY
+            
+        if TRANSCRIPTION_SUBMISSION_METHOD == "url":
+            headers["Content-Type"] = "application/json"
+            payload = {}
+            if file_url:
+                payload["file_url"] = file_url
+            elif file_path:
+                payload["file_path"] = file_path
+            else:
+                raise ValueError("Either file_path or file_url must be provided")
+            
+            response = http_session.post(TRANSCRIPTION_API_URL, json=payload, headers=headers, timeout=15, verify=False)
+            
+        else: # default to 'upload' method
+            if file_path:
+                with open(file_path, 'rb') as f:
+                    # Use safe filename to prevent unicode encoding errors in requests
+                    files = {'file': ('audio.wav', f, 'audio/wav')}
+                    response = http_session.post(TRANSCRIPTION_API_URL, files=files, headers=headers, timeout=30, verify=False)
+            elif file_url:
+                file_response = http_session.get(file_url, timeout=15, verify=False)
+                file_response.raise_for_status()
+                files = {'file': (os.path.basename(file_url.split('?')[0]) or 'audio.wav', file_response.content, 'audio/wav')}
+                response = http_session.post(TRANSCRIPTION_API_URL, files=files, headers=headers, timeout=30, verify=False)
+            else:
+                raise ValueError("Either file_path or file_url must be provided")
         
         if response.status_code != 200:
             raise Exception(f"Transcription trigger failed: {response.status_code} - {response.text}")
@@ -52,7 +79,7 @@ def get_call_transcription(file_path: str = None, file_url: str = None, max_retr
             log.info("Polling transcription status", extra={"attempt": attempt + 1, "task_id": task_id})
 
             try:
-                status_response = requests.get(status_url, timeout=10)
+                status_response = http_session.get(status_url, headers=headers, timeout=10, verify=False)
                 if status_response.status_code != 200:
                     continue
                 
@@ -75,10 +102,9 @@ def get_call_transcription(file_path: str = None, file_url: str = None, max_retr
         return format_raw_transcript(transcript_data)
 
     except Exception as e:
-        log.error("Transcription pipeline failed", extra={
+        log.error(f"Transcription pipeline failed: {str(e)}", extra={
             "file_path": file_path,
             "file_url": file_url,
-            "error": str(e),
             "traceback": traceback.format_exc()
         })
         return []
