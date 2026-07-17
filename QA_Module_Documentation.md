@@ -1,4 +1,4 @@
-# QA Module - C-Zentrix Data Pipeline
+# QA_ADMIN Release - C-Zentrix Data Pipeline
 ## Technical Documentation & Setup Guide
 
 **Version**: 1.1.0 (Production Release)  

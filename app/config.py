@@ -50,6 +50,7 @@ QA_API_BASE_URL = os.getenv("QA_API_BASE_URL", "http://172.16.3.215:8005/api/v1"
 QA_TENANT_SLUG = os.getenv("QA_TENANT_SLUG", "c-zentrix-support")
 QA_EMAIL = os.getenv("QA_EMAIL", "admin@c-zentrix.com")
 QA_PASSWORD = os.getenv("QA_PASSWORD", "Password@123")
+QA_SKIP_2FA = os.getenv("QA_SKIP_2FA", "true").lower().strip() == "true"
 
 # ───────── DOMAIN & METADATA ─────────
 RECORDING_BASE_URL = os.getenv("RECORDING_BASE_URL", "http://192.168.1.219")

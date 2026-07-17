@@ -7,7 +7,8 @@ from app.config import (
     QA_TENANT_SLUG,
     QA_EMAIL,
     QA_PASSWORD,
-    CELERY_BROKER_URL
+    CELERY_BROKER_URL,
+    QA_SKIP_2FA
 )
 from app.logger import log
 from requests.adapters import HTTPAdapter
@@ -65,7 +66,8 @@ def get_access_token() -> str:
     }
     payload = {
         "email": QA_EMAIL,
-        "password": QA_PASSWORD
+        "password": QA_PASSWORD,
+        "skip2fa": QA_SKIP_2FA
     }
 
     try:
@@ -78,7 +80,11 @@ def get_access_token() -> str:
         log.info("QA Module API Login Successful")
 
         response_data = res.json()
-        token = response_data["data"]["accessToken"]
+        try:
+            token = response_data["data"]["accessToken"]
+        except KeyError as ke:
+            log.error(f"Login response structure mismatch. Response body: {res.text}")
+            raise Exception(f"Failed to find expected key in response: {ke}")
 
         # Cache the token in Redis for 12 hours (43200 seconds)
         if r_client:

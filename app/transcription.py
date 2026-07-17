@@ -43,14 +43,20 @@ def get_call_transcription(file_path: str = None, file_url: str = None, max_retr
             
         else: # default to 'upload' method
             if file_path:
+                ext = os.path.splitext(file_path)[1].lower()
+                mime = 'audio/mpeg' if ext == '.mp3' else 'audio/wav'
+                filename_to_send = 'audio.mp3' if ext == '.mp3' else 'audio.wav'
                 with open(file_path, 'rb') as f:
-                    # Use safe filename to prevent unicode encoding errors in requests
-                    files = {'file': ('audio.wav', f, 'audio/wav')}
+                    files = {'file': (filename_to_send, f, mime)}
                     response = http_session.post(TRANSCRIPTION_API_URL, files=files, headers=headers, timeout=30, verify=False)
             elif file_url:
                 file_response = http_session.get(file_url, timeout=15, verify=False)
                 file_response.raise_for_status()
-                files = {'file': (os.path.basename(file_url.split('?')[0]) or 'audio.wav', file_response.content, 'audio/wav')}
+                url_path = file_url.split('?')[0]
+                ext = os.path.splitext(url_path)[1].lower()
+                mime = 'audio/mpeg' if ext == '.mp3' else 'audio/wav'
+                filename_to_send = os.path.basename(url_path) or ('audio.mp3' if ext == '.mp3' else 'audio.wav')
+                files = {'file': (filename_to_send, file_response.content, mime)}
                 response = http_session.post(TRANSCRIPTION_API_URL, files=files, headers=headers, timeout=30, verify=False)
             else:
                 raise ValueError("Either file_path or file_url must be provided")

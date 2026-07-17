@@ -36,9 +36,10 @@ from app.db import (
     get_connection_CMPMGR,
     init_tracker_db,
     is_session_processed,
-    mark_session_processed
+    mark_session_processed,
+    get_metadata_from_db_by_filename
 )
-from app.pipeline import process_single_call_record
+from app.pipeline import process_single_call_record, parse_metadata_from_filename
 
 
 def serialize_db_row(row: dict) -> dict:
@@ -170,27 +171,26 @@ def poll_directory_source():
 
     try:
         files = os.listdir(SCAN_DIRECTORY_PATH)
-        wav_files = [f for f in files if f.lower().endswith(".wav") and os.path.isfile(os.path.join(SCAN_DIRECTORY_PATH, f))]
+        audio_files = [f for f in files if f.lower().endswith((".wav", ".mp3")) and os.path.isfile(os.path.join(SCAN_DIRECTORY_PATH, f))]
         
-        log.info(f"Directory scan summary", extra={
+        log.info(f"Directory scan summary - Total files: {len(files)}, Audio files: {len(audio_files)}", extra={
             "raw_files_count": len(files),
-            "wav_files_count": len(wav_files)
+            "audio_files_count": len(audio_files)
         })
         
-        for filename in wav_files:
+        for filename in audio_files:
             # Skip instantly if we already cached this file in memory as processed
             if _DIR_SCAN_CACHE.contains(filename):
                 continue
 
-            # Parse C-Zentrix file format (e.g. AgentName-AgentID-CustPh-SessionID.wav)
-            name_without_ext = os.path.splitext(filename)[0]
-            parts = name_without_ext.split('-')
+            # Query DB and parse filename for fallback
+            db_meta = get_metadata_from_db_by_filename(filename)
+            metadata = parse_metadata_from_filename(filename)
             
-            # Default values if naming style is different
-            session_id = parts[-1] if len(parts) > 1 else name_without_ext
-            agent_name = parts[0] if len(parts) > 1 else "DirScanAgent"
-            agent_id = parts[1] if len(parts) > 2 else None
-            cust_ph_no = parts[2] if len(parts) > 3 else ""
+            session_id = db_meta.get("session_id") or metadata.get("session_id")
+            agent_id = db_meta.get("agent_id") or metadata.get("agent_id")
+            agent_name = db_meta.get("agent_name") or metadata.get("agent_name") or "DirScanAgent"
+            cust_ph_no = db_meta.get("cust_ph_no") or metadata.get("cust_ph_no") or ""
 
             # Check local tracker
             processed = is_session_processed(session_id)
