@@ -40,6 +40,7 @@ except Exception:
 
 
 # ───────── TRANSCRIPTION API ─────────
+TRANSCRIPTION_ENABLED = os.getenv("TRANSCRIPTION_ENABLED", "true").lower().strip() == "true"
 TRANSCRIPTION_API_URL = os.getenv("TRANSCRIPTION_API_URL", "https://call_transcript.c-zentrix.com/api/v1/transcribe")
 TRANSCRIPTION_STATUS_URL = os.getenv("TRANSCRIPTION_STATUS_URL", "https://call_transcript.c-zentrix.com/api/v1/status")
 TRANSCRIPTION_API_KEY = os.getenv("TRANSCRIPTION_API_KEY", "")
@@ -65,3 +66,20 @@ CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://127.0.0.1:63
 POLL_INTERVAL_SECONDS = int(os.getenv("POLL_INTERVAL_SECONDS", 60))
 LOG_DIR = os.getenv("LOG_DIR", "/var/log/czentrix")
 LOG_FILENAME = os.getenv("LOG_FILENAME", "qa_call_push.log")
+
+# ───────── MULTI-TENANT CONFIGURATION ─────────
+_tenants_str = os.getenv("TENANTS", "").strip()
+TENANTS = [t.strip() for t in _tenants_str.split(",") if t.strip()] if _tenants_str else []
+
+TENANT_CONFIGS = {}
+for tenant in TENANTS:
+    TENANT_CONFIGS[tenant] = {
+        "QA_API_BASE_URL": os.getenv(f"QA_API_BASE_URL_{tenant}", QA_API_BASE_URL),
+        "QA_TENANT_SLUG": os.getenv(f"QA_TENANT_SLUG_{tenant}", os.getenv("QA_TENANT_SLUG", "")),
+        "QA_EMAIL": os.getenv(f"QA_EMAIL_{tenant}", os.getenv("QA_EMAIL", "")),
+        "QA_PASSWORD": os.getenv(f"QA_PASSWORD_{tenant}", os.getenv("QA_PASSWORD", "")),
+        "QA_SKIP_2FA": os.getenv(f"QA_SKIP_2FA_{tenant}", "true").lower().strip() == "true",
+        "SCAN_DIRECTORY_PATH": os.getenv(f"SCAN_DIRECTORY_PATH_{tenant}", SCAN_DIRECTORY_PATH),
+        "QA_SOURCE": os.getenv(f"QA_SOURCE_{tenant}", QA_SOURCE)
+    }
+

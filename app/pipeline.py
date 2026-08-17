@@ -1,7 +1,7 @@
 import os
 from datetime import datetime, timezone
 import traceback
-from app.config import RECORDING_BASE_URL, QA_TOPIC, QA_SOURCE
+from app.config import RECORDING_BASE_URL, QA_TOPIC, QA_SOURCE, TRANSCRIPTION_ENABLED
 from app.logger import log
 from app.transcription import get_call_transcription
 from app.qa_client import upload_conversation
@@ -105,7 +105,10 @@ def process_single_call_record(row: dict) -> bool:
         if file_url:
             recording_url = file_url
             log.info("Processing external URL record", extra={"session_id": session_id, "file_url": file_url})
-            call_trans = get_call_transcription(file_url=file_url)
+            if TRANSCRIPTION_ENABLED:
+                call_trans = get_call_transcription(file_url=file_url)
+            else:
+                log.info("Transcription is disabled. Skipping transcription request.", extra={"session_id": session_id})
 
         # Case 2: Local File Path input
         else:
@@ -132,12 +135,18 @@ def process_single_call_record(row: dict) -> bool:
                 "monitor_filename": os.path.basename(file_path),
                 "file_path": file_path
             })
-            call_trans = get_call_transcription(file_path=file_path)
+            if TRANSCRIPTION_ENABLED:
+                call_trans = get_call_transcription(file_path=file_path)
+            else:
+                log.info("Transcription is disabled. Skipping transcription request.", extra={"session_id": session_id})
 
         if not call_trans:
             log.warning("Empty transcription returned, proceeding with empty dialog payload", extra={"session_id": session_id})
 
         # 3. Form payload
+        tenant_config = row.get("tenant_config")
+        qa_source = (tenant_config.get("QA_SOURCE") if tenant_config else None) or QA_SOURCE
+
         payload = {
             "externalId": str(session_id),
             "agentId": str(agent_id) if agent_id is not None else None,
@@ -149,13 +158,13 @@ def process_single_call_record(row: dict) -> bool:
             },
             "metadata": {
                 "topic": QA_TOPIC,
-                "source": QA_SOURCE
+                "source": qa_source
             },
             "receivedAt": get_iso_utc_timestamp()
         }
 
         # 4. Upload to QA module
-        success = upload_conversation(payload)
+        success = upload_conversation(payload, tenant_config=tenant_config)
 
         if success:
             mark_session_processed(session_id, "COMPLETED")

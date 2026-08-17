@@ -30,7 +30,9 @@ from app.config import (
     SOURCE_API_URL,
     SOURCE_API_METHOD,
     SOURCE_API_HEADERS,
-    SOURCE_API_BODY
+    SOURCE_API_BODY,
+    TENANTS,
+    TENANT_CONFIGS
 )
 from app.db import (
     get_connection_CMPMGR,
@@ -73,7 +75,12 @@ def poll_new_calls_task():
         if PROCESS_MODE == "db":
             poll_database_source()
         elif PROCESS_MODE == "dir":
-            poll_directory_source()
+            if TENANTS:
+                for tenant in TENANTS:
+                    log.info(f"Running directory poll for tenant: {tenant}")
+                    poll_directory_source(tenant_config=TENANT_CONFIGS[tenant])
+            else:
+                poll_directory_source()
         elif PROCESS_MODE == "api":
             poll_api_source()
         else:
@@ -157,21 +164,30 @@ def poll_database_source():
 
 _DIR_SCAN_CACHE = LRUCache(10000)
 
-def poll_directory_source():
+def poll_directory_source(tenant_config: dict = None):
     """
     Scans a host directory for recording files (specifically .wav).
     Parses metadata (agent, session ID) directly from the filename structures.
     """
-    if not SCAN_DIRECTORY_PATH or not os.path.exists(SCAN_DIRECTORY_PATH):
-        log.error(f"Scan directory path does not exist: {SCAN_DIRECTORY_PATH}")
+    scan_path = (tenant_config.get("SCAN_DIRECTORY_PATH") if tenant_config else None) or SCAN_DIRECTORY_PATH
+
+    if not scan_path:
+        log.error("SCAN_DIRECTORY_PATH is not configured")
         return
 
-    log.info(f"Scanning directory: {SCAN_DIRECTORY_PATH}")
+    current_date_str = datetime.now().strftime("%Y_%m_%d")
+    target_scan_path = os.path.join(scan_path, current_date_str).replace('\\', '/')
+
+    if not os.path.exists(target_scan_path):
+        log.error(f"Scan directory path does not exist: {target_scan_path}")
+        return
+
+    log.info(f"Scanning directory: {target_scan_path}")
     queued_count = 0
 
     try:
-        files = os.listdir(SCAN_DIRECTORY_PATH)
-        audio_files = [f for f in files if f.lower().endswith((".wav", ".mp3")) and os.path.isfile(os.path.join(SCAN_DIRECTORY_PATH, f))]
+        files = os.listdir(target_scan_path)
+        audio_files = [f for f in files if f.lower().endswith((".wav", ".mp3")) and os.path.isfile(os.path.join(target_scan_path, f))]
         
         log.info(f"Directory scan summary - Total files: {len(files)}, Audio files: {len(audio_files)}", extra={
             "raw_files_count": len(files),
@@ -211,8 +227,9 @@ def poll_directory_source():
                 "agentName": agent_name,
                 "cust_ph_no": cust_ph_no,
                 "cust_name": "",
-                "monitor_file_path": SCAN_DIRECTORY_PATH,
-                "monitor_filename": filename
+                "monitor_file_path": target_scan_path,
+                "monitor_filename": filename,
+                "tenant_config": tenant_config
             }
 
             process_call_record_task.delay(row)
