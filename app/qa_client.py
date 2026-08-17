@@ -139,6 +139,7 @@ def upload_conversation(conversation_payload: dict, tenant_config: dict = None) 
         }
 
         log.info(f"Uploading conversation payload [externalId: {clean_payload.get('externalId')}]")
+        log.info(f"Final QA API Payload: {json.dumps(final_payload)}")
         
         res = http_session.post(upload_url, headers=headers, json=final_payload, timeout=15)
         

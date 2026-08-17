@@ -32,7 +32,8 @@ from app.config import (
     SOURCE_API_HEADERS,
     SOURCE_API_BODY,
     TENANTS,
-    TENANT_CONFIGS
+    TENANT_CONFIGS,
+    SCAN_BACK_DAYS
 )
 from app.db import (
     get_connection_CMPMGR,
@@ -175,7 +176,8 @@ def poll_directory_source(tenant_config: dict = None):
         log.error("SCAN_DIRECTORY_PATH is not configured")
         return
 
-    current_date_str = datetime.now().strftime("%Y_%m_%d")
+    scan_date = datetime.now() - timedelta(days=SCAN_BACK_DAYS)
+    current_date_str = scan_date.strftime("%Y_%m_%d")
     target_scan_path = os.path.join(scan_path, current_date_str).replace('\\', '/')
 
     if not os.path.exists(target_scan_path):
@@ -187,7 +189,7 @@ def poll_directory_source(tenant_config: dict = None):
 
     try:
         files = os.listdir(target_scan_path)
-        audio_files = [f for f in files if f.lower().endswith((".wav", ".mp3")) and os.path.isfile(os.path.join(target_scan_path, f))]
+        audio_files = [f for f in files if f.lower().endswith(".mp3") and os.path.isfile(os.path.join(target_scan_path, f))]
         
         log.info(f"Directory scan summary - Total files: {len(files)}, Audio files: {len(audio_files)}", extra={
             "raw_files_count": len(files),

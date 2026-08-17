@@ -64,6 +64,7 @@ CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://127.0.0.1:63
 
 # ───────── OPERATIONS & LOGS ─────────
 POLL_INTERVAL_SECONDS = int(os.getenv("POLL_INTERVAL_SECONDS", 60))
+SCAN_BACK_DAYS = int(os.getenv("SCAN_BACK_DAYS", "0"))
 LOG_DIR = os.getenv("LOG_DIR", "/var/log/czentrix")
 LOG_FILENAME = os.getenv("LOG_FILENAME", "qa_call_push.log")
 

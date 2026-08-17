@@ -11,6 +11,7 @@ services:
       - /var/log/czentrix:/var/log/czentrix
       - ./app:/app/app
       - /var/www/html:/var/www/html  # Mount HTML folder for accessing recordings directly
+      - /var/spool/asterisk/monitor_0:/var/spool/asterisk/monitor_0  # Mount Asterisk recordings directory
     restart: always
 
   # Celery Beat Scheduler
@@ -25,4 +26,5 @@ services:
       - /var/log/czentrix:/var/log/czentrix
       - ./app:/app/app
       - /var/www/html:/var/www/html  # Mount HTML folder for accessing recordings directly
+      - /var/spool/asterisk/monitor_0:/var/spool/asterisk/monitor_0  # Mount Asterisk recordings directory
     restart: always
